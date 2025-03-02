@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, GripVertical } from 'lucide-react';
+import { Plus, GripVertical, ArrowRight, ArrowLeft } from 'lucide-react';
 
 const STORAGE_KEY = 'schedule-table-data';
 const COLORS = ['black', 'red', 'green', 'blue'];
 
 const ScheduleTable = () => {
   const days = ['M', 'Tu', 'W', 'Th', 'Fr', 'Sa', 'Su'];
+  const [currentWeek, setCurrentWeek] = useState(getDateWeek());
   const [rows, setRows] = useState([]);
   const [draggedRowId, setDraggedRowId] = useState(null);
 
@@ -30,10 +31,29 @@ const ScheduleTable = () => {
     }
   }, [rows]);
 
+  function getDateWeek(date) {
+    const currentDate = 
+        (typeof date === 'object') ? date : new Date();
+    const januaryFirst = 
+        new Date(currentDate.getFullYear(), 0, 1);
+    const daysToNextMonday = 
+        (januaryFirst.getDay() === 1) ? 0 : 
+        (7 - januaryFirst.getDay()) % 7;
+    const nextMonday = 
+        new Date(currentDate.getFullYear(), 0, 
+        januaryFirst.getDate() + daysToNextMonday);
+
+    return (currentDate < nextMonday) ? 52 : 
+    (currentDate > nextMonday ? Math.ceil(
+    (currentDate - nextMonday) / (24 * 3600 * 1000) / 7) : 1);
+  }
+
   const initializeFirstRow = () => {
     const initialRow = {
       id: generateUniqueId(),
       text: '',
+      status: 'A',
+      weeks:[ getDateWeek() ],
       cellStates: {}
     };
     setRows([initialRow]);
@@ -79,6 +99,7 @@ const ScheduleTable = () => {
           if (newState.state === 'none') {
             newState.color = 'black'; // Reset color when returning to none state
           }
+          row.status =  states[nextStateIndex] === "filled" ?'D' : 'A' ;
         } else {
           return row;
         }
@@ -157,10 +178,20 @@ const ScheduleTable = () => {
     );
   };
 
+  const prewWeek = () => {
+    setCurrentWeek(currentWeek-1)
+  }
+  
+  const nextWeek = () => {
+    setCurrentWeek(currentWeek+1)
+  }
+
   const addNewRow = () => {
     const newRow = {
       id: generateUniqueId(),
       text: '',
+      status: "A",
+      weeks:[ getDateWeek() ],
       cellStates: {}
     };
     setRows(currentRows => [...currentRows, newRow]);
@@ -197,28 +228,43 @@ const ScheduleTable = () => {
   };
 
 
-  function getDaysOfWeek() {
+  function getDaysOfWeek(currentWeek) {
     const now = new Date();
-    const currentDay = now.getDay(); // Sunday is 0, Monday is 1, etc.
-    const daysOfWeek = [];
+    now.setHours(0,0,0,0);
+    
+    
+    var start = new Date(now.getFullYear(), 0, 0);
+    start.setDate(start.getDate() + currentWeek * 7);
+    console.log('-->')
+    console.log(start)
+    const currentDay = start.getDay(); // Sunday is 0, Monday is 1, etc.
   
     // Calculate the start of the week (Monday)
-    const startDate = new Date(now);
-    startDate.setDate(now.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Adjust if today is Sunday
-  
+    const startDate = new Date(start);
+    startDate.setDate(start.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Adjust if today is Sunday
+    console.log(startDate)
+
+    const daysOfWeek = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      daysOfWeek.push(date.toLocaleDateString('en-US', 
-       //{ weekday: 'long', month: 'short', day: 'numeric' })
-         { day: 'numeric' })
+      date.setHours(0,0,0,0)
+      console.log("------")
+      console.log(date)
+      console.log(now)
+      console.log(now.getTime() === date.getTime())
+      daysOfWeek.push(
+        { 
+          dt: new Date(date),
+          day : date.toLocaleDateString('en-US', { day: 'numeric' }),
+          today: now.getTime() === date.getTime()
+        }
       );
     }
+    console.log(daysOfWeek)
     return daysOfWeek;
   }
   
-  
-
   return (
     <div className="p-4">
       <table className="w-full border-collapse border border-gray-300">
@@ -232,14 +278,31 @@ const ScheduleTable = () => {
         <thead>
           <tr>
             <th className="border border-gray-300"></th>
-            <th colSpan="7" className="border border-gray-300 text-center">When</th>
+            
+            <th colSpan="7" className="border border-gray-300 text-center">
+              <button 
+                  onClick={prewWeek}
+                  className="w-8 h-8 flex items-center justify-center mx-auto hover:bg-gray-100 rounded-full"
+                  aria-label="Previous week"
+                >
+                  <ArrowLeft size={20} />
+                </button>  
+              When {currentWeek}
+              <button 
+                onClick={nextWeek}
+                className="w-8 h-8 flex items-center justify-center mx-auto hover:bg-gray-100 rounded-full"
+                aria-label="Next week"
+              >
+                <ArrowRight size={20} />
+              </button>
+              </th>
             <th className="border border-gray-300 text-center">What</th>
           </tr>
           <tr>
             <th className="border border-gray-300"></th>
             {days.map((day) => (
               <th key={day} className="border border-gray-300 text-center p-2">
-                {day}
+                <p>{day}</p>
               </th>
             ))}
             <th className="border border-gray-300">
@@ -254,9 +317,13 @@ const ScheduleTable = () => {
           </tr>
           <tr>
             <th className="border border-gray-300"></th>
-            {getDaysOfWeek().map((day) => (
-              <th key={day} className="border border-gray-300 text-center p-2">
-                {day}
+            {getDaysOfWeek(currentWeek).map((day) => (
+              <th key={day.dt} className="border border-gray-300 text-center p-2">
+                {day.today ? (
+                                <p style={{color: 'green'}}>{day.day}</p>
+                              ) : (
+                                day.day
+                              )}
               </th>
             ))}
             <th className="border border-gray-300">
@@ -264,7 +331,7 @@ const ScheduleTable = () => {
           </tr>
         </thead>
         <tbody>
-          {rows.map(row => (
+          {rows.filter(r => r.weeks.includes(currentWeek) || (!r.weeks.includes(currentWeek) &&r.status === 'A')).map(row => (
             <tr 
               key={row.id}
               draggable="true"

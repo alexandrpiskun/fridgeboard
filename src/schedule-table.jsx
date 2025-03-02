@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, GripVertical, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const STORAGE_KEY = 'schedule-table-data';
 const COLORS = ['black', 'red', 'green', 'blue'];
@@ -10,11 +10,19 @@ const ScheduleTable = () => {
   const [rows, setRows] = useState([]);
   const [draggedRowId, setDraggedRowId] = useState(null);
 
+  const migrate = (data) => {
+    data.forEach(element => {
+        element.weeks = element.weeks || [currentWeek]
+        element.status = element.status || "A"
+    });
+  }
+
   useEffect(() => {
     const savedData = localStorage.getItem(STORAGE_KEY);
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
+        migrate(parsedData);
         setRows(parsedData);
       } catch (error) {
         console.error('Error parsing saved data:', error);
@@ -285,15 +293,16 @@ const ScheduleTable = () => {
                   className="w-8 h-8 flex items-center justify-center mx-auto hover:bg-gray-100 rounded-full"
                   aria-label="Previous week"
                 >
-                  <ArrowLeft size={20} />
-                </button>  
-              When {currentWeek}
+                  <ChevronLeft size={20} />
+              </button>  
+                
+              When
               <button 
                 onClick={nextWeek}
                 className="w-8 h-8 flex items-center justify-center mx-auto hover:bg-gray-100 rounded-full"
                 aria-label="Next week"
               >
-                <ArrowRight size={20} />
+                <ChevronRight size={20} />
               </button>
               </th>
             <th className="border border-gray-300 text-center">What</th>

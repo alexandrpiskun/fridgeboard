@@ -196,6 +196,29 @@ const ScheduleTable = () => {
     });
   };
 
+
+  function getDaysOfWeek() {
+    const now = new Date();
+    const currentDay = now.getDay(); // Sunday is 0, Monday is 1, etc.
+    const daysOfWeek = [];
+  
+    // Calculate the start of the week (Monday)
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Adjust if today is Sunday
+  
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      daysOfWeek.push(date.toLocaleDateString('en-US', 
+       //{ weekday: 'long', month: 'short', day: 'numeric' })
+         { day: 'numeric' })
+      );
+    }
+    return daysOfWeek;
+  }
+  
+  
+
   return (
     <div className="p-4">
       <table className="w-full border-collapse border border-gray-300">
@@ -227,6 +250,16 @@ const ScheduleTable = () => {
               >
                 <Plus size={20} />
               </button>
+            </th>
+          </tr>
+          <tr>
+            <th className="border border-gray-300"></th>
+            {getDaysOfWeek().map((day) => (
+              <th key={day} className="border border-gray-300 text-center p-2">
+                {day}
+              </th>
+            ))}
+            <th className="border border-gray-300">
             </th>
           </tr>
         </thead>

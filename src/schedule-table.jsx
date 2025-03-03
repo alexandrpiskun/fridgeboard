@@ -10,10 +10,23 @@ const ScheduleTable = () => {
   const [rows, setRows] = useState([]);
   const [draggedRowId, setDraggedRowId] = useState(null);
 
+  const lessThanAll = (v, arr) =>{
+      var res = false;
+      arr.forEach(e => {
+          res = res?res:v>e;
+      })
+      return res;
+  }
+
   const migrate = (data) => {
-    data.forEach(element => {
+    data.forEach( element => {
         element.weeks = element.weeks || [currentWeek]
         element.status = element.status || "A"
+        Object.keys(element.cellStates).forEach(
+          wkDay => {
+            element.cellStates[wkDay].weeks = element.cellStates[wkDay].weeks  ||  [currentWeek]
+          }
+        )
     });
   }
 
@@ -340,7 +353,12 @@ const ScheduleTable = () => {
           </tr>
         </thead>
         <tbody>
-          {rows.filter(r => r.weeks.includes(currentWeek) || (!r.weeks.includes(currentWeek) &&r.status === 'A')).map(row => (
+          {rows
+                .filter(r => r.weeks.includes(currentWeek) 
+                              || (!r.weeks.includes(currentWeek) 
+                                  && lessThanAll(currentWeek, r.weeks)
+                                  && r.status === 'A'))
+                .map(row => (
             <tr 
               key={row.id}
               draggable="true"

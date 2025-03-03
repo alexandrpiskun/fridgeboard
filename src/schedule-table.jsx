@@ -104,7 +104,8 @@ const ScheduleTable = () => {
           const nextColorIndex = (currentColorIndex + 1) % COLORS.length;
           newState = {
             ...currentState,
-            color: COLORS[nextColorIndex]
+            color: COLORS[nextColorIndex],
+            weeks: [...currentState.weeks, currentWeek]
           };
         } else if (e.button === 0) {
           // Left click - cycle through states
@@ -114,11 +115,13 @@ const ScheduleTable = () => {
           
           newState = {
             state: states[nextStateIndex],
-            color: currentState.color || 'black'
+            color: currentState.color || 'black',
+            weeks: [...currentState.weeks||[], currentWeek]
           };
 
           if (newState.state === 'none') {
             newState.color = 'black'; // Reset color when returning to none state
+            newState.weeks =  currentState.weeks.filter(item => item !== currentWeek) 
           }
           row.status =  states[nextStateIndex] === "filled" ?'D' : 'A' ;
         } else {
@@ -159,7 +162,9 @@ const ScheduleTable = () => {
   };
 
   const getCellStyle = (cellState) => {
-    if (!cellState || cellState.state === 'none') {
+    if (!cellState 
+        || cellState.state === 'none' 
+        || !cellState.weeks.includes(currentWeek)) {
       return {
         backgroundColor: 'white',
         border: '1px solid #D1D5DB'

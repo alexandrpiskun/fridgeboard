@@ -10,23 +10,34 @@ const ScheduleTable = () => {
   const [rows, setRows] = useState([]);
   const [draggedRowId, setDraggedRowId] = useState(null);
 
-  const lessThanAll = (v, arr) =>{
-      var res = false;
-      arr.forEach(e => {
-          res = res?res:v>e;
-      })
-      return res;
+  const withinInterval=(v, from, to)=>{
+     return from <= v && v <= to;
   }
 
   const migrate = (data) => {
     data.forEach( element => {
         element.weeks = element.weeks || [currentWeek]
         element.status = element.status || "A"
-        Object.keys(element.cellStates).forEach(
-          wkDay => {
-            element.cellStates[wkDay].weeks = element.cellStates[wkDay].weeks  ||  [currentWeek]
+        days.forEach(day => {
+          if (!element.cellStates[day]) {
+            element.cellStates[day] = { week: {} };
+          } else {
+            element.cellStates[day].weeks = element.cellStates[day].weeks || [currentWeek]
+            if (!('week' in element.cellStates[day])) {
+              element.cellStates[day].week = {};
+              element.cellStates[day].weeks.forEach(w => {
+                element.cellStates[day].week[w] = {
+                  state: element.cellStates[day].state || 'none',
+                  color: element.cellStates[day].color || 'black'
+                };
+              });
+            }
           }
-        )
+        });
+        element.span = {
+          from: Math.min(...element.weeks),
+          to: Math.max(...element.weeks)
+        }
     });
   }
 
@@ -69,13 +80,21 @@ const ScheduleTable = () => {
     (currentDate - nextMonday) / (24 * 3600 * 1000) / 7) : 1);
   }
 
+  const initializeCellStates = () => {
+    const cellStates = {};
+    days.forEach(day => { cellStates[day] = { week: {} }; });
+    return cellStates;
+  };
+
   const initializeFirstRow = () => {
+    const week = getDateWeek();
     const initialRow = {
       id: generateUniqueId(),
       text: '',
       status: 'A',
-      weeks:[ getDateWeek() ],
-      cellStates: {}
+      weeks: [week],
+      span: { from: week, to: week },
+      cellStates: initializeCellStates()
     };
     setRows([initialRow]);
   };
@@ -90,8 +109,8 @@ const ScheduleTable = () => {
     setRows(currentRows => {
       return currentRows.map(row => {
         if (row.id !== rowId) return row;
-
-        const currentState = row.cellStates[day] || { 
+        console.log("clicked on day " + day)
+        const currentState = row.cellStates[day].week[currentWeek] || { 
           state: 'none', // none -> selected -> partial -> filled
           color: 'black'
         };
@@ -105,8 +124,8 @@ const ScheduleTable = () => {
           newState = {
             ...currentState,
             color: COLORS[nextColorIndex],
-            weeks: [...currentState.weeks, currentWeek]
           };
+          row.cellStates[day].week[currentWeek] = newState;
         } else if (e.button === 0) {
           // Left click - cycle through states
           const states = ['none', 'selected', 'partial', 'filled'];
@@ -115,26 +134,40 @@ const ScheduleTable = () => {
           
           newState = {
             state: states[nextStateIndex],
-            color: currentState.color || 'black',
-            weeks: [...currentState.weeks||[], currentWeek]
+            color: currentState.color || 'black'
           };
-
+          ////weeks: [...currentState.weeks||[], currentWeek]
+          row.span.from = Math.min(row.span.from, currentWeek);
+          row.span.to = Math.max(row.span.to, currentWeek);
+          
           if (newState.state === 'none') {
             newState.color = 'black'; // Reset color when returning to none state
-            newState.weeks =  currentState.weeks.filter(item => item !== currentWeek) 
+            delete row.cellStates[day].week[currentWeek];
+            // Recalculate span after removing this week
+            if (row.span.to <= currentWeek) {
+              days.forEach(d => {
+                const weekNums = Object.keys(row.cellStates[d].week).map(Number);
+                if (weekNums.length > 0) {
+                  row.span.to = Math.max(...weekNums, row.span.to);
+                }
+              });
+            }
+          } else {
+            row.cellStates[day].week[currentWeek] = newState;
           }
+          
           row.status =  states[nextStateIndex] === "filled" ?'D' : 'A' ;
         } else {
           return row;
         }
 
-        return {
+        const updatedRow = {
           ...row,
           cellStates: {
             ...row.cellStates,
-            [day]: newState
           }
-        };
+        }
+        return updatedRow;
       });
     });
   };
@@ -163,8 +196,7 @@ const ScheduleTable = () => {
 
   const getCellStyle = (cellState) => {
     if (!cellState 
-        || cellState.state === 'none' 
-        || !cellState.weeks.includes(currentWeek)) {
+        || cellState.state === 'none' ) {
       return {
         backgroundColor: 'white',
         border: '1px solid #D1D5DB'
@@ -217,11 +249,14 @@ const ScheduleTable = () => {
       id: generateUniqueId(),
       text: '',
       status: "A",
-      weeks:[ getDateWeek() ],
-      cellStates: {}
+      weeks: [currentWeek],
+      span: { from: currentWeek, to: currentWeek },
+      cellStates: initializeCellStates()
     };
+    console.log(currentWeek)
     setRows(currentRows => [...currentRows, newRow]);
   };
+  
 
   const handleDragStart = (e, rowId) => {
     setDraggedRowId(rowId);
@@ -261,24 +296,18 @@ const ScheduleTable = () => {
     
     var start = new Date(now.getFullYear(), 0, 0);
     start.setDate(start.getDate() + currentWeek * 7);
-    console.log('-->')
-    console.log(start)
     const currentDay = start.getDay(); // Sunday is 0, Monday is 1, etc.
   
     // Calculate the start of the week (Monday)
     const startDate = new Date(start);
     startDate.setDate(start.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Adjust if today is Sunday
-    console.log(startDate)
-
+   
     const daysOfWeek = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       date.setHours(0,0,0,0)
-      console.log("------")
-      console.log(date)
-      console.log(now)
-      console.log(now.getTime() === date.getTime())
+
       daysOfWeek.push(
         { 
           dt: new Date(date),
@@ -287,7 +316,7 @@ const ScheduleTable = () => {
         }
       );
     }
-    console.log(daysOfWeek)
+    
     return daysOfWeek;
   }
   
@@ -314,7 +343,7 @@ const ScheduleTable = () => {
                   <ChevronLeft size={20} />
               </button>  
                 
-              When
+              When ({currentWeek})
               <button 
                 onClick={nextWeek}
                 className="w-8 h-8 flex items-center justify-center mx-auto hover:bg-gray-100 rounded-full"
@@ -359,9 +388,9 @@ const ScheduleTable = () => {
         </thead>
         <tbody>
           {rows
-                .filter(r => r.weeks.includes(currentWeek) 
-                              || (!r.weeks.includes(currentWeek) 
-                                  && lessThanAll(currentWeek, r.weeks)
+                .filter(r => (withinInterval(currentWeek, r.span.from, r.span.to)/* check min max interwal */)
+                              || (!withinInterval(currentWeek, r.span.from, r.span.to) 
+                                  && r.span.from <= currentWeek
                                   && r.status === 'A'))
                 .map(row => (
             <tr 
@@ -383,7 +412,7 @@ const ScheduleTable = () => {
                 <td
                   key={day}
                   className="p-2 text-center cursor-pointer transition-all duration-200"
-                  style={getCellStyle(row.cellStates[day])}
+                  style={getCellStyle(row.cellStates[day].week[currentWeek])}
                   onMouseDown={(e) => handleCellClick(row.id, day, e)}
                 >
                   &nbsp;

@@ -1,3 +1,11 @@
+# Vite
+.vite/
+dist-ssr/
+
+# macOS resource forks
+._*
+.DS_Store
+
 # Logs
 logs
 *.log
